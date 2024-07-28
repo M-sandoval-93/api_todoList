@@ -3,3 +3,6 @@
 
 # ignorar archivos del sistema OSX
 .DS_Store
+
+# ignorar dependenciasl
+vendor
