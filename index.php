@@ -16,7 +16,8 @@
     $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
     $dotenv->load();
 
-    
+    // -----------------------------------------> AUTHENTICATION
+    require_once "./controllers/AuthController.php";
 
     
 

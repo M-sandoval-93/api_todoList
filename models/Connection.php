@@ -26,23 +26,23 @@
 
         }
 
-        protected function preConsult($query) {
+        protected function preConsult(string $query) :object {
             return $this->connection->prepare($query);
         }
 
-        protected function beginTransaction() {
+        protected function beginTransaction() :void {
             $this->connection->beginTransaction();
         }
         
-        protected function commit() {
+        protected function commit() :void {
             $this->connection->commit();
         }
         
-        protected function rollBack() {
+        protected function rollBack() :void {
             $this->connection->rollBack();
         }
         
-        protected function closeConnection() {
+        protected function closeConnection() :void {
             $this->connection = null;
         }
     }
