@@ -6,3 +6,6 @@
 
 # ignorar dependenciasl
 vendor
+
+# ignorar notas de trabajo local
+notas_local.txt

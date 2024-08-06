@@ -1,7 +1,0 @@
--> trabajar manejo de error para controlar errores tanto del codigo como de las consultas SQL
--> convertir catch repetitivo en un metodo en el manejador de errores
-
--> agregar manejo de errores en los metodos tal como se muestra en el siguiente ejemplo;
-if ($this->connection === null) {
-    throw new Exception("Connection is not established.");
-}

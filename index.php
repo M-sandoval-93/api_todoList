@@ -16,6 +16,10 @@
     $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
     $dotenv->load();
 
+    // -----------------------------------------> REGISTER
+    require_once "./controllers/RegisterAccountController.php";
+
+
     // -----------------------------------------> AUTHENTICATION
     require_once "./controllers/AuthController.php";
 

@@ -6,8 +6,8 @@
     use Flight;
     use PDO;
     use Exception;
-use Firebase\JWT\ExpiredException;
-use Firebase\JWT\Key;
+    use Firebase\JWT\ExpiredException;
+    use Firebase\JWT\Key;
 
     class Auth extends Connection {
 
