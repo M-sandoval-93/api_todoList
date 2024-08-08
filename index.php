@@ -9,6 +9,9 @@
         exit;
     }
 
+    // configutación de la zona horaria
+    date_default_timezone_set('America/Santiago');
+
     // carga del autoload para el uso de dependencias y demás
     require 'vendor/autoload.php';
 
@@ -18,6 +21,9 @@
 
     // -----------------------------------------> REGISTER
     require_once "./controllers/RegisterAccountController.php";
+
+    // -----------------------------------------> VERIFY ACCOUNT
+    require_once "./controllers/VerifyAccountController.php";
 
 
     // -----------------------------------------> AUTHENTICATION

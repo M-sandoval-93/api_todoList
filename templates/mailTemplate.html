@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="../style/style.css" />
+    <title>Validación de Cuenta</title>
+  </head>
+  <body>
+    <!-- <div class="container">
+      <div class="header">
+        <h1>Validación de Cuenta</h1>
+      </div>
+      <div class="content">
+        <p>Hola,</p>
+        <p>
+          Gracias por registrarte. Por favor, utiliza el siguiente código para
+          validar tu cuenta:
+        </p>
+        <div class="code">{{CODE}}</div>
+        <p>
+          O puedes hacer clic en el siguiente enlace para validar tu cuenta:
+        </p>
+        <a href="{{VALIDATION_LINK}}" class="button">Validar Cuenta</a>
+      </div>
+      <div class="footer">
+        <p>Si no solicitaste esta validación, por favor ignora este correo.</p>
+      </div>
+    </div> -->
+    <main class="container">
+      <header class="header">
+        <img class="img_logo" src="#" alt="logo de sv tech" />
+      </header>
+
+      <section class="section">
+        <article class="article__welcome">
+          <h1>Hola, <span class="text__name">{{USER_NAME}}</span></h1>
+          <p>
+            El equipo de <span class="text__company">SV TECH</span>, te da la
+            bienvenida a nuestro sistema de tareas, solo falta validar tu cuenta
+            mediante el siguiente código:
+          </p>
+          <div class="text__code">{{CODE}}</div>
+          <span class="text__footer">Válido solo por 24 horas.</span>
+        </article>
+
+        <article class="section__validate">
+          <p>Puedes visitar el siguiente enlace para validar tu cuenta.</p>
+          <a class="btn_validate" href="{{VALIDATION_LINK}}"">Validar Cuenta</a>
+        </article>
+      </section>
+
+      <footer>
+        <section class="section">
+          <article class="article__footer">
+            <h2>
+              Ponte en contacto con <span class="text__company">SV TECH</span>
+            </h2>
+            <article class="footer__contacto">
+              <div>
+                <span>Página web</span>
+                <a href="https://svtech.cl" title="Página web SV TECH">
+                  svtech.cl
+                </a>
+              </div>
+
+              <div>
+                <span>contacto</span>
+                <p>+569 - 98798787</p>
+              </div>
+
+              <div>
+                <span>correo</span>
+                <p>contacto@svtech.cl</p>
+              </div>
+            </article>
+
+            <p>
+              Por favor, no respondas este mensaje. Esta dirección no acepta
+              correos electrónicos, por ende, no recibiras una respuesta.
+            </p>
+          </article>
+          <article>
+            <p>® SV TECH 2023 - 2024. Todos los derechos reservados.</p>
+          </article>
+        </section>
+      </footer>
+    </main>
+  </body>
+</html>

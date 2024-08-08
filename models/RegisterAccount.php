@@ -2,6 +2,7 @@
     namespace Models;
 
     use Models\Mailer;
+    use DateTime;
     use Exception;
     use Flight;
     use PDO;
@@ -15,26 +16,47 @@
         // método para comprobar existencia y estado de una cuenta de usuario
         private function existingUserAccount(object $data) :bool {
             // sentencia SQL select
-            $querySelectUserAccount = $this->preConsult("select * from user_account where user_email = ?");
+            $querySelectUserAccount = $this->preConsult("
+                select ua.id_user_account, ua.user_email, ua.state_account,
+                ev.code, ev.code_expiration
+                from user_account ua
+                left join email_verification ev on ev.email_to_verify = ua.user_email
+                where ua.user_email = ?");
 
             // ejecución de la consulta SQL
             $querySelectUserAccount->execute([$data->userEmail]);
 
-            // comprobación de existencia
+            // comprobar si la cuenta existe
             if ($querySelectUserAccount->rowCount() !== 0) {
-                // obtención de un objeto con los datos    
+                // obtención de un objeto con los datos
                 $account = $querySelectUserAccount->fetch(PDO::FETCH_OBJ);
 
-                // comprobación de estado
-                if ($account->state_account === 0) {
-                    // obtención del codigo para validar correo
-                    $code = $this->setTableEmailVerification($data);
+                // verificar cuenta activa creada
+                if ($account->state_account !== 0) {
+                    Flight::json([
+                        "message" => "El E-mail ya tiene una cuenta activa",
+                    ]);
+                    return true;
+                } 
 
-                    // enviar email con el codigo
+                // verificar si el código esta activo
+                
+                $currentDate = new DateTime();
+                $expirationDate = new DateTime($account->code_expiration);
 
-                    throw new Exception("La cuenta esta inactiva, se ha enviado un nuevo codigo de activación a tu correo" . $code, 404);
+                // comprobación del código
+                if ($expirationDate > $currentDate) {
+                    Flight::json([
+                        "message" => "La cuenta existe, pero debe ser validada, revisa tu correo; " . $data->userEmail,
+                    ]);
+                    
+                } else {
+                    self::reSendVerificationCode($data);
+                    Flight::json([
+                        "message" => "La cuenta existe, pero el codigo ha caducado, nuevo código enviado a ; " . $data->userEmail,
+                    ]);
                 }
-                throw new Exception("La cuenta ya existe", 404);
+                return true;
             }
 
             return false;
@@ -57,12 +79,13 @@
         // método para registrar cuenta en tabla email_verification
         private function setTableEmailVerification(object $data) :int {
             // generar codigo de validacion
-            $verification_code = rand(1000, 9999);
+            $verification_code = rand(100000, 999999);
 
-            // sentencia SQL
+            // sentencia SQL para registrar email y codigo de verificacion
             $queryInsertEmailVerification = $this->preConsult("insert into email_verification (email_to_verify, code)
                 values (?, ?);");
 
+            // ejecución de la sentencia preparada
             $queryInsertEmailVerification->execute([
                 $data->userEmail,
                 $verification_code
@@ -81,35 +104,55 @@
                 $this->beginTransaction();
 
                 // comprobar existencia y estado de cuenta de usuario
-                $this->existingUserAccount($dataUserAccount);
+                if ($this->existingUserAccount($dataUserAccount)) return;
+
                 // insert en tabla cuenta de usuario
                 $this->setTableUserAccount($dataUserAccount);
+
                 // insert en tabla verificar email
                 $code = $this->setTableEmailVerification($dataUserAccount);
 
                 // confirmar la transacción ==================>
                 $this->commit();
-                $email = "contacto@svtech.cl";
-                $asunto = "Cógido para validar cuenta de usuario";
-                $cuerpo = "<h2>Validación de cuenta de usuario registrada !</h2>
-                    <p>código de validación {$code}</p>";
 
-                Mailer::sendMailer($email, $asunto, $cuerpo);
+                // envío de email con código para validar cuenta
+                // $this->setEmailWithCode($code, $dataUserAccount);
+                Mailer::setEmailWithCode($code, $dataUserAccount);
 
-                // enviar email con el codigo
-                // Flight::json($code);
+                Flight::json([
+                "message" => "success",
+            ]);
 
             } catch (Exception $error) {
                 //revertir transaccion      ==================>
                 $this->rollBack();
 
-                Flight::halt(404, json_encode([
-                    "message" => "Error: ". $error,
+                $errorCode = $error->getCode() ? $error->getCode() : 404;
+
+                Flight::halt($errorCode, json_encode([
+                    "message" => "Error: ". $error->getMessage(),
                 ]));
 
             } finally {
                 $this->closeConnection();
             }
+        }
+
+        public static function reSendVerificationCode(object $dataUserAccount) :void {
+            $db = new self();
+
+            // generar codigo de validacion
+            $verification_code = rand(100000, 999999);
+
+            // sentencia SQL para actualizar codigo de validación de la cuenta
+            $queryUpdateVerificationCode = $db->preConsult("update email_verification 
+                set code = ?, code_expiration = (current_timestamp + interval 60 minute) where email_to_verify = ?;");
+
+            // ejecución de la sentencia preparada
+            $queryUpdateVerificationCode->execute([$verification_code,$dataUserAccount->userEmail]);
+
+            Mailer::setEmailWithCode($verification_code, $dataUserAccount);
+
         }
     }
 

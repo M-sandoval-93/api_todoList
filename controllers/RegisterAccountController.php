@@ -1,12 +1,10 @@
 <?php
 
-    $userAccount = new Models\RegisterAccount;
+    $registerAccount = new Models\RegisterAccount;
 
     // peticiones http
-    Flight::route('POST /registerAccount', [$userAccount, "setAccount"]);
+    Flight::route('POST /registerAccount', [$registerAccount, "setAccount"]);
 
-
-    // Flight::route('GET /test', [$auth, "validatePrivilege"]);
 
     
 ?>

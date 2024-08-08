@@ -2,19 +2,21 @@
 
     namespace Models;
 
-    use Flight;
     use PHPMailer\PHPMailer\{PHPMailer, Exception, SMTP};
+    use Templates\MailTemplate;
     
 
     class Mailer {
 
-        public static function sendMailer(string $email, string $asunto, string $cuerpo) :bool {
+        // método para enviar mail
+        protected static function sendMailer(string $email, string $asunto, string $cuerpo) :bool {
             // inicialización de la instancia mail; pasar true para mostrar excepciones
             $mail = new PHPMailer(true);
 
             try {
                 // server settings
-                $mail->SMTPDebug = SMTP::DEBUG_SERVER;  // para mostrar mensajes, en producción cambiar por DEBUG_OFF
+                // $mail->SMTPDebug = SMTP::DEBUG_SERVER;  // opción para mostrar mensajes de debug
+                $mail->SMTPDebug = SMTP::DEBUG_OFF; 
                 $mail->isSMTP();
                 $mail->Host = $_ENV['MAIL_HOST'];
                 $mail->SMTPAuth = true;
@@ -28,14 +30,11 @@
 
                 // dirección receptora del correo
                 $mail->addAddress($email);
-                // // enviar copia de correo
-                // $mail->addReplyTo($_ENV['MAIL_USER'], 'New register');
 
                 $mail->isHTML(true);
-                $mail->Subject = mb_convert_encoding($asunto, 'ISO-8859-1', 'UTF-8'); // agregar asunto
+                $mail->Subject = mb_convert_encoding($asunto, 'ISO-8859-1', 'UTF-8');
 
                 // cuerpo del correo
-                // $mail->Body = utf8_decode($cuerpo);
                 $mail->Body = mb_convert_encoding($cuerpo, 'ISO-8859-1', 'UTF-8');
 
                 if ($mail->send()) return true;
@@ -43,9 +42,19 @@
                 return false;
   
             } catch (Exception $error) {
-                Flight::halt(404, json_encode([
-                    "message" => "Error: ". $mail->ErrorInfo,
-                ]));
+                throw new Exception($mail->ErrorInfo, 500);
+            }
+        }
+
+        // método estático para enviar código por mail
+        public static function setEmailWithCode(int $code, object $data) :void {
+            $mailTemplate = new MailTemplate();
+            $link = $_ENV['VALIDATE_LINK'] . "?email=" . urlencode($data->userEmail);
+            $bodyMail = $mailTemplate->getTemplateSendCode($data->userName, $code, $link);
+            $subject = "Cógido para validar cuenta de usuario";
+
+            if (!self::sendMailer($data->userEmail, $subject, $bodyMail)) {
+                throw new Exception("Problemas para enviar codigo", 500);
             }
         }
     }
