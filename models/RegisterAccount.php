@@ -40,7 +40,6 @@
                 } 
 
                 // verificar si el código esta activo
-                
                 $currentDate = new DateTime();
                 $expirationDate = new DateTime($account->code_expiration);
 
@@ -53,7 +52,7 @@
                 } else {
                     self::reSendVerificationCode($data);
                     Flight::json([
-                        "message" => "La cuenta existe, pero el codigo ha caducado, nuevo código enviado a ; " . $data->userEmail,
+                        "message" => "La cuenta existe, pero el codigo ha caducado, nuevo código enviado a; " . $data->userEmail,
                     ]);
                 }
                 return true;
@@ -152,7 +151,6 @@
             $queryUpdateVerificationCode->execute([$verification_code,$dataUserAccount->userEmail]);
 
             Mailer::setEmailWithCode($verification_code, $dataUserAccount);
-
         }
     }
 

@@ -9,6 +9,10 @@
     class Mailer {
 
         // método para enviar mail
+        
+        // @email -> email al cual se enviará el correo
+        // @asunto -> asunto del correo
+        // @cuerpo -> cuerpo del correo
         protected static function sendMailer(string $email, string $asunto, string $cuerpo) :bool {
             // inicialización de la instancia mail; pasar true para mostrar excepciones
             $mail = new PHPMailer(true);
@@ -47,6 +51,9 @@
         }
 
         // método estático para enviar código por mail
+        
+        // @code -> codigo para validar la cuenta
+        // @data -> objeto que requiere; userEmail - userName
         public static function setEmailWithCode(int $code, object $data) :void {
             $mailTemplate = new MailTemplate();
             $link = $_ENV['VALIDATE_LINK'] . "?email=" . urlencode($data->userEmail);
