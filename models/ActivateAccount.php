@@ -7,14 +7,14 @@
     use Flight;
     use PDO;
 
-    class VerifyAccount extends Connection {
+    class ActivateAccount extends Connection {
 
         public function __construct() {
             parent::__construct();
         }
 
         // método para comprobar el código de activación
-
+        // 
         // @data -> objeto que requiere; userEmail - code
         private function checkActivationCode(object $data): void {
             // sentencia SQL select
@@ -26,7 +26,7 @@
                 where ua.user_email = ?
                 and ev.code = ?;");
 
-            // ejecucón de la consulta SQL
+            // ejecución de la sentencia SQL
             $queryCheckAccount->execute([$data->userEmail, $data->code]);
 
             // obtención de un objeto con los datos
@@ -48,7 +48,7 @@
                 $data->userName = $account->user_name;
 
                 // reenvio del código de activación al correo
-                RegisterAccount::reSendVerificationCode($data);
+                // RegisterAccount::reSendVerificationCode($data);
                 throw new Exception("El código a caducado, se ha enviado un nuevo código a; " . $data->userEmail, 400);
             }
 
@@ -57,14 +57,17 @@
         // método para activar cuenta de usuario
 
         // @data -> objeto que requiere; userEmail - code
-        private function activateUserAccount(object $data) :void {
+        private function updateStateAccount(object $data) :void {
+            // sentencia SQL update
+            $queryActivateAccount = $this->preConsult("update user_account 
+                set state_account = 1 where user_email = ?;");
 
-            
+            // ejecución de la sentencia SQL
+            if (!$queryActivateAccount->execute([$data->userEmail]))
+                throw new Exception("Error al activar la cuenta, intenatar más tarde", 400);
         }
 
-
-
-        public function verify() {
+        public function activateUserAccount() {
             // datos del usuario que se registra
             $dataUserAccount = Flight::request()->data;
 
@@ -76,7 +79,7 @@
                 $this->checkActivationCode($dataUserAccount);
 
                 // Activación de la cuenta
-                $this->activateUserAccount($dataUserAccount);
+                $this->updateStateAccount($dataUserAccount);
 
                 // confirmar la transacción ==================>
                 $this->commit();

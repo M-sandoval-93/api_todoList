@@ -2,6 +2,7 @@
     namespace Models;
 
     use Models\Mailer;
+    use CustomExceptions\ExceptionAccount;
     use DateTime;
     use Exception;
     use Flight;
@@ -13,8 +14,9 @@
             parent::__construct();
         }
 
-        // método para comprobar existencia y estado de una cuenta de usuario
-        private function existingUserAccount(object $data) :bool {
+        // method to check existence and status of a user account
+        // @param $dataUserAccount -> object with user account data
+        private function existingUserAccount(object $dataUserAccount) :void {
             // sentencia SQL select
             $querySelectUserAccount = $this->preConsult("
                 select ua.id_user_account, ua.user_email, ua.state_account,
@@ -24,106 +26,106 @@
                 where ua.user_email = ?");
 
             // ejecución de la consulta SQL
-            $querySelectUserAccount->execute([$data->userEmail]);
-
-            // comprobar si la cuenta existe
-            if ($querySelectUserAccount->rowCount() !== 0) {
-                // obtención de un objeto con los datos
-                $account = $querySelectUserAccount->fetch(PDO::FETCH_OBJ);
-
-                // verificar cuenta activa creada
-                if ($account->state_account !== 0) {
-                    Flight::json([
-                        "message" => "El E-mail ya tiene una cuenta activa",
-                    ]);
-                    return true;
-                } 
-
-                // verificar si el código esta activo
+            $querySelectUserAccount->execute([$dataUserAccount->userEmail]);
+            $account = $querySelectUserAccount->fetch(PDO::FETCH_OBJ);
+            
+            if($account) {
+                // create of the dates
                 $currentDate = new DateTime();
                 $expirationDate = new DateTime($account->code_expiration);
 
-                // comprobación del código
-                if ($expirationDate > $currentDate) {
-                    Flight::json([
-                        "message" => "La cuenta existe, pero debe ser validada, revisa tu correo; " . $data->userEmail,
-                    ]);
-                    
-                } else {
-                    self::reSendVerificationCode($data);
-                    Flight::json([
-                        "message" => "La cuenta existe, pero el codigo ha caducado, nuevo código enviado a; " . $data->userEmail,
-                    ]);
-                }
-                return true;
-            }
+                // there in an active user account
+                if ($account->state_account !== 0) 
+                    ExceptionAccount::emailAlreadyExists();
 
-            return false;
+                if ($expirationDate > $currentDate) {
+                    // inactive user account
+                    ExceptionAccount::needToActiveAccount();
+                
+                } else {
+                    // expired activation code
+                    $this->registerAndSendActivationCode($dataUserAccount);
+                    ExceptionAccount::expiredActivationCode();
+
+                }
+            }
         } 
 
-        // método para registrar cuenta en tabla user_account
-        private function setTableUserAccount(object $data) :void {
+        // method to register account in user_account table
+        // @param $dataUserAccount -> object with user account data
+        private function setUserAccoun(object $dataUserAccount) :void {
             // sentencia SQL insert
             $queryInsertUserAccount = $this->preConsult("insert into user_account 
                 (user_name, user_password, user_email) values (?, ?, ?);");
 
             // ejecución de la consulta SQL
             $queryInsertUserAccount->execute([
-                $data->userName,
-                $data->userPassword,
-                $data->userEmail
+                $dataUserAccount->userName,
+                $dataUserAccount->userPassword,
+                $dataUserAccount->userEmail
             ]);
         }
 
-        // método para registrar cuenta en tabla email_verification
-        private function setTableEmailVerification(object $data) :int {
+        // method to register account in email_verification table
+        // @param $userEmail -> email of account
+        private function setActivationCode(string $userEmail) :int {
             // generar codigo de validacion
-            $verification_code = rand(100000, 999999);
+            $activationCode = rand(100000, 999999);
 
             // sentencia SQL para registrar email y codigo de verificacion
             $queryInsertEmailVerification = $this->preConsult("insert into email_verification (email_to_verify, code)
-                values (?, ?);");
+                    values (?, ?)
+                    on duplicate key update code = ?, 
+                    code_expiration = (current_timestamp + interval 60 minute);");
 
             // ejecución de la sentencia preparada
             $queryInsertEmailVerification->execute([
-                $data->userEmail,
-                $verification_code
+                $userEmail,
+                $activationCode,
+                $activationCode
             ]);
 
-            return $verification_code;
+            return $activationCode;
+        }
+
+        // method to register and send activation code
+        // @param $dataUserAccount -> object with user account data
+        private function registerAndSendActivationCode(object $dataUserAccount) :void {
+            // obtaining activation code
+            $activationCode = $this->setActivationCode($dataUserAccount->userEmail);
+
+            // sending activation code to email
+            Mailer::sendActivationCode($dataUserAccount->userEmail, $dataUserAccount->userName, $activationCode);
         }
 
         // método para registrar cuenta de usuario
+        // method to register user account
         public function setAccount() :void {
             // datos del usuario que se registra
             $dataUserAccount = Flight::request()->data;
-
+            
             try {
-                // iniciar transacción      ==================>
+                // start transaction      ==================>
                 $this->beginTransaction();
 
-                // comprobar existencia y estado de cuenta de usuario
-                if ($this->existingUserAccount($dataUserAccount)) return;
+                // cheking the existence and status of the user account
+                $this->existingUserAccount($dataUserAccount);
 
-                // insert en tabla cuenta de usuario
-                $this->setTableUserAccount($dataUserAccount);
+                // insert user account
+                $this->setUserAccoun($dataUserAccount);
 
-                // insert en tabla verificar email
-                $code = $this->setTableEmailVerification($dataUserAccount);
+                // insert and send activation code
+                $this->registerAndSendActivationCode($dataUserAccount);
 
-                // confirmar la transacción ==================>
-                $this->commit();
-
-                // envío de email con código para validar cuenta
-                // $this->setEmailWithCode($code, $dataUserAccount);
-                Mailer::setEmailWithCode($code, $dataUserAccount);
+                // confirm transaction ==================>
+                 $this->commit();
 
                 Flight::json([
-                "message" => "success",
-            ]);
+                    "message" => "Success",
+                ]);
 
             } catch (Exception $error) {
-                //revertir transaccion      ==================>
+                //reverse transaction     ==================>
                 $this->rollBack();
 
                 $errorCode = $error->getCode() ? $error->getCode() : 404;
@@ -137,21 +139,23 @@
             }
         }
 
-        public static function reSendVerificationCode(object $dataUserAccount) :void {
-            $db = new self();
+        // método estático para reenviar código de verificación
+        // static method to resend verification code
+        // public static function reSendVerificationCode(object $dataUserAccount) :void {
+        //     $db = new self();
 
-            // generar codigo de validacion
-            $verification_code = rand(100000, 999999);
+        //     // generar codigo de validacion
+        //     $verification_code = rand(100000, 999999);
 
-            // sentencia SQL para actualizar codigo de validación de la cuenta
-            $queryUpdateVerificationCode = $db->preConsult("update email_verification 
-                set code = ?, code_expiration = (current_timestamp + interval 60 minute) where email_to_verify = ?;");
+        //     // sentencia SQL para actualizar codigo de validación de la cuenta
+        //     $queryUpdateVerificationCode = $db->preConsult("update email_verification 
+        //         set code = ?, code_expiration = (current_timestamp + interval 60 minute) where email_to_verify = ?;");
 
-            // ejecución de la sentencia preparada
-            $queryUpdateVerificationCode->execute([$verification_code,$dataUserAccount->userEmail]);
+        //     // ejecución de la sentencia preparada
+        //     $queryUpdateVerificationCode->execute([$verification_code,$dataUserAccount->userEmail]);
 
-            Mailer::setEmailWithCode($verification_code, $dataUserAccount);
-        }
+        //     Mailer::setEmailWithCode($verification_code, $dataUserAccount);
+        // }
     }
 
 

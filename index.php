@@ -22,9 +22,8 @@
     // -----------------------------------------> REGISTER
     require_once "./controllers/RegisterAccountController.php";
 
-    // -----------------------------------------> VERIFY ACCOUNT
-    require_once "./controllers/VerifyAccountController.php";
-
+    // -----------------------------------------> ACTIVATE ACCOUNT
+    require_once "./controllers/ActivateAccountController.php";
 
     // -----------------------------------------> AUTHENTICATION
     require_once "./controllers/AuthController.php";

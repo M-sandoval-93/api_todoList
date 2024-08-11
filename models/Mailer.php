@@ -4,16 +4,13 @@
 
     use PHPMailer\PHPMailer\{PHPMailer, Exception, SMTP};
     use Templates\MailTemplate;
-    
 
     class Mailer {
-
-        // método para enviar mail
-        
-        // @email -> email al cual se enviará el correo
-        // @asunto -> asunto del correo
-        // @cuerpo -> cuerpo del correo
-        protected static function sendMailer(string $email, string $asunto, string $cuerpo) :bool {
+        // method to send mail
+        // @param email -> email al cual se enviará el correo
+        // @param asunto -> asunto del correo
+        // @param cuerpo -> cuerpo del correo
+        public static function sendMailer(string $email, string $asunto, string $cuerpo) :bool {
             // inicialización de la instancia mail; pasar true para mostrar excepciones
             $mail = new PHPMailer(true);
 
@@ -50,20 +47,32 @@
             }
         }
 
-        // método estático para enviar código por mail
-        
-        // @code -> codigo para validar la cuenta
-        // @data -> objeto que requiere; userEmail - userName
-        public static function setEmailWithCode(int $code, object $data) :void {
+        public static function sendActivationCode(string $userEmail, string $userName, int $activationCode) :void {
             $mailTemplate = new MailTemplate();
-            $link = $_ENV['VALIDATE_LINK'] . "?email=" . urlencode($data->userEmail);
-            $bodyMail = $mailTemplate->getTemplateSendCode($data->userName, $code, $link);
-            $subject = "Cógido para validar cuenta de usuario";
+            $link = $_ENV['VALIDATE_LINK'] . "?email=" . urlencode($userEmail);
+            $bodyMail = $mailTemplate->getTemplateSendCode($userName, $activationCode, $link);
+            $subject = "Activa tu cuenta de usuario";
 
-            if (!self::sendMailer($data->userEmail, $subject, $bodyMail)) {
+            if (!Mailer::sendMailer($userEmail, $subject, $bodyMail)) {
                 throw new Exception("Problemas para enviar codigo", 500);
             }
         }
+
+        // método estático para enviar código por mail
+        // static méthod to send code by mail
+        // @code -> codigo para validar la cuenta
+        // @data -> objeto que requiere; userEmail - userName
+        // public static function setEmailWithCode(int $code, object $data) :void {
+        //     $mailTemplate = new MailTemplate();
+        //     $link = $_ENV['VALIDATE_LINK'] . "?email=" . urlencode($data->userEmail);
+        //     $bodyMail = $mailTemplate->getTemplateSendCode($data->userName, $code, $link);
+        //     $subject = "Cógido para validar cuenta de usuario";
+
+        //     if (!self::sendMailer($data->userEmail, $subject, $bodyMail)) {
+        //         throw new Exception("Problemas para enviar codigo", 500);
+        //     }
+        // }
+
     }
 
 

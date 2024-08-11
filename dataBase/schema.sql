@@ -101,7 +101,7 @@ create table if not exists user_account (
 -- tabla para verificar cuenta de usuario creada
 create table if not exists email_verification (
 	id_email_verification int auto_increment primary key,
-    email_to_verify VARCHAR(120) not null,
+    email_to_verify varchar(120) unique not null,
     code int not null,
     code_assignment timestamp default current_timestamp,
     code_expiration timestamp default (current_timestamp + interval 60 minute),
