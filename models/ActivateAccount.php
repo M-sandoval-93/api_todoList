@@ -2,6 +2,8 @@
 
     namespace Models;
 
+    use Models\Mailer;
+    use Errors\ExceptionAccount;
     use DateTime;
     use Exception;
     use Flight;
@@ -13,11 +15,8 @@
             parent::__construct();
         }
 
-        // método para comprobar el código de activación
-        // 
-        // @data -> objeto que requiere; userEmail - code
-        private function checkActivationCode(object $data): void {
-            // sentencia SQL select
+        // method to cheking the activation code
+        private function checkActivationCode(object $dataUserAccount) :array {
             $queryCheckAccount = $this->preConsult("
                 select  ua.id_user_account, ua.user_email, ua.state_account,
                 ev.code, ev.code_expiration, ua.user_name
@@ -26,80 +25,102 @@
                 where ua.user_email = ?
                 and ev.code = ?;");
 
-            // ejecución de la sentencia SQL
-            $queryCheckAccount->execute([$data->userEmail, $data->code]);
-
-            // obtención de un objeto con los datos
+            $queryCheckAccount->execute([$dataUserAccount->userEmail, $dataUserAccount->code]);
             $account = $queryCheckAccount->fetch(PDO::FETCH_OBJ);
-            
-            // comprobar que el código pertenece al correo de la cuenta
-            if (!$account) throw new Exception("Códgo inválido !", 404);
 
-            // verificación del estado de la cuenta
-            if ($account->state_account !== 0) throw new Exception("La cuenta ya se encuentra activa", 400);
+            if ($account) {
+                $currentDate = new DateTime();
+                $expirationDate = new DateTime($account->code_expiration);
 
-            // verificar si el código esta activo
-            $currentDate = new DateTime();
-            $expirationDate = new DateTime($account->code_expiration);
+                if ($account->state_account !== 0)
+                    return ["status" => "active"];
 
-            // comprobación del código
-            if ($expirationDate < $currentDate) {
-                // agregar nuevo dato al objeto principal
-                $data->userName = $account->user_name;
+                if ($expirationDate < $currentDate)
+                    return [
+                        "status" => "expired",
+                        "userName" => $account->user_name,
+                    ];
 
-                // reenvio del código de activación al correo
-                // RegisterAccount::reSendVerificationCode($data);
-                throw new Exception("El código a caducado, se ha enviado un nuevo código a; " . $data->userEmail, 400);
+                return ["status" => "inactive"];
+
             }
-
+                
+            return ["status" => "invalid"];
         }
 
-        // método para activar cuenta de usuario
-
-        // @data -> objeto que requiere; userEmail - code
-        private function updateStateAccount(object $data) :void {
-            // sentencia SQL update
+        // method to activate user account
+        private function updateStateUserAccount(object $data) :void {
             $queryActivateAccount = $this->preConsult("update user_account 
                 set state_account = 1 where user_email = ?;");
 
-            // ejecución de la sentencia SQL
             if (!$queryActivateAccount->execute([$data->userEmail]))
-                throw new Exception("Error al activar la cuenta, intenatar más tarde", 400);
+                ExceptionAccount::problemActivatingAccount();
         }
 
+        // method to register account in email_verification table
+        private function setActivationCode(string $userEmail) :int {
+            $activationCode = rand(100000, 999999);
+
+            $queryInsertEmailVerification = $this->preConsult("insert into email_verification (email_to_verify, code)
+                    values (?, ?)
+                    on duplicate key update code = ?, 
+                    code_expiration = (current_timestamp + interval 60 minute);");
+
+            $queryInsertEmailVerification->execute([
+                $userEmail,
+                $activationCode,
+                $activationCode
+            ]);
+
+            return $activationCode;
+        }
+
+        // method to activation user account
         public function activateUserAccount() {
-            // datos del usuario que se registra
             $dataUserAccount = Flight::request()->data;
 
             try {
-                // iniciar transacción      ==================>
                 $this->beginTransaction();
+                $setActivationAccount = $this->checkActivationCode($dataUserAccount);
 
-                // verificación del código para activar la cuenta
-                $this->checkActivationCode($dataUserAccount);
+                switch ($setActivationAccount["status"]) {
+                    case "active":
+                        ExceptionAccount::emailAlreadyExists();
+                        break;
 
-                // Activación de la cuenta
-                $this->updateStateAccount($dataUserAccount);
+                    case "expired":
+                        $activationCode = $this->setActivationCode($dataUserAccount->userEmail);
+                        Mailer::sendActivationCode($dataUserAccount->userEmail, $setActivationAccount["userName"], $activationCode);                    
+                        Flight::json([
+                            "error" => "El código a expirado, se a enviado un nuevo código de activación.",
+                        ], 404);
+                        break;
 
-                // confirmar la transacción ==================>
+                    case "inactive":
+                        $this->updateStateUserAccount($dataUserAccount);
+                        Flight::json([
+                            "message" => "Cuenta activada",
+                        ]);
+                        break;
+                        
+                    case "invalid":
+                        ExceptionAccount::invalidCode();
+                        break;
+                }
+
                 $this->commit();
                 
-                Flight::json([
-                    "message" => "Cuenta activada con éxito !",
-                ]);
-
             } catch (Exception $error) {
-                //revertir transaccion      ==================>
                 $this->rollBack();
-
                 $errorCode = $error->getCode() ? $error->getCode() : 404;
 
                 Flight::halt($errorCode, json_encode([
-                    "message" => "Error: ". $error->getMessage(),
+                    "error" => $error->getMessage(),
                 ]));
 
             } finally {
                 $this->closeConnection();
+
             }
         }
     }

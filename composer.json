@@ -9,7 +9,7 @@
     "psr-4": {
       "Models\\": "models/",
       "Templates\\": "templates/",
-      "CustomExceptions\\": "CustomExceptions"
+      "Errors\\": "errors/"
     }
   }
 }
